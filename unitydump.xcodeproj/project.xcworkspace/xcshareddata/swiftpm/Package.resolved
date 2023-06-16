@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "auxiliaryexecute",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Lakr233/AuxiliaryExecute",
+      "state" : {
+        "revision" : "5a36e877cb371583c539503f476856ea714108b9",
+        "version" : "2.0.0"
+      }
+    }
+  ],
+  "version" : 2
+}
