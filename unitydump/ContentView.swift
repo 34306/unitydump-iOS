@@ -101,6 +101,7 @@ struct ContentView: View {
                 initialize()
             }
         }
+        .navigationViewStyle(.stack)
     }
     
     private func initialize() {
