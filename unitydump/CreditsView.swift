@@ -33,6 +33,7 @@ struct CreditsView: View {
             }
         }
         .preferredColorScheme(colorScheme)
+        .navigationViewStyle(.stack)
     }
 
 
