@@ -19,88 +19,99 @@ struct ContentView: View {
     @State private var processing = false
     @State private var showingAlert = false
     @State private var message: String = ""
+    
+    @State private var firstboot = true
 
     var body: some View {
-        
         NavigationView {
-    
-                VStack {
-                    VStack(alignment: .center) {
-                        Text("Make sure the binary is decrypted.\nNot support encrypted\nglobal-metadata.dat")
-                            .font(.headline)
-                            .padding()
-                            .multilineTextAlignment(.center)
-                            .lineLimit(nil)
+            VStack {
+                VStack(alignment: .center) {
+                    Text("Make sure the binary is decrypted.\nNot support encrypted\nglobal-metadata.dat")
+                        .font(.headline)
+                        .padding()
+                        .multilineTextAlignment(.center)
+                        .lineLimit(nil)
+                }
+                
+                NavigationLink(
+                    destination: CreditsView(),
+                    label: {
+                        HStack {
+                            Text("Credits")
+                            Image(systemName: "chevron.right")
+                        }
+                        .foregroundColor(.blue.opacity(0.7))
+                        .font(.system(size: 20))
                     }
-                    
-                    NavigationLink(
-                        destination: CreditsView(),
-                        label: {
-                            HStack {
-                                Text("Credits")
-                                Image(systemName: "chevron.right")
-                            }
-                            .foregroundColor(.blue.opacity(0.7))
-                            .font(.system(size: 20))
+                )
+                
+                TextField("Path to UnityFramework/BinaryExecute", text: $filePath1)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding()
+                    .disabled(processing)
+                
+                TextField("Path to global-metadata.dat", text: $filePath2)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding()
+                    .disabled(processing)
+                
+                TextField("Output Path", text: $outputDirectory)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding()
+                    .disabled(processing)
+                
+                
+                
+                HStack {
+                    Button(action: {
+                        processing = true
+                        DispatchQueue.global().async {
+                            executeDumpingScript(file1: filePath1, file2: filePath2, outputDir: outputDirectory)
+                            processing = false
                         }
-                    )
+                    }) {
+                        Text("il2CppDumper!")
+                            .foregroundColor(.white)
+                            .padding()
+                            .background(Color.blue)
+                            .cornerRadius(10)
+                    }
+                    .disabled(processing)
                     
-                    TextField("Path to UnityFramework/BinaryExecute", text: $filePath1)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding()
-                        .disabled(processing)
-                    
-                    TextField("Path to global-metadata.dat", text: $filePath2)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding()
-                        .disabled(processing)
-                    
-                    TextField("Output Path", text: $outputDirectory)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding()
-                        .disabled(processing)
-                    
-                    
-                    
-                    HStack {
-                        Button(action: {
-                            processing = true
-                            DispatchQueue.global().async {
-                                executeDumpingScript(file1: filePath1, file2: filePath2, outputDir: outputDirectory)
-                                processing = false
-                            }
-                        }) {
-                            Text("il2CppDumper!")
-                                .foregroundColor(.white)
-                                .padding()
-                                .background(Color.blue)
-                                .cornerRadius(10)
-                        }
-                        .disabled(processing)
-                        
-                        if processing {
-                            ProgressView()
-                                .padding()
-                        }
+                    if processing {
+                        ProgressView()
+                            .padding()
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(
-                    Image("gradient")
-                    //LinearGradient(gradient: Gradient(colors: [.blue, .green, .purple, .yellow]), startPoint: .top, endPoint: .bottom)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(
+                Image("gradient")
                     .ignoresSafeArea()
                     .scaledToFill()
                     .blur(radius: 15)
                     .opacity(0.7)
-                )
+            )
             .padding()
             .alert(isPresented: $showingAlert) {
                 Alert(title: Text(message))
             }
             .onAppear{
+                if !firstboot { return }
                 initialize()
+                firstboot = false
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing){
+                    Button(action: {
+                        openfilza()
+                    }) {
+                        Image(systemName: "folder")
+                    }
+                }
             }
         }
+        .navigationViewStyle(.stack)
     }
     
     private func initialize() {
@@ -137,5 +148,11 @@ struct ContentView: View {
         if let url = URL(string: "filza://\(outputDirectory)/dump.cs") {
             UIApplication.shared.open(url)
         }
+    }
+}
+
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
     }
 }
