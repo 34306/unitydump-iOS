@@ -104,6 +104,15 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing){
                     Button(action: {
+                        if let url = URL(string: "https://github.com/34306/unitydump-iOS") {
+                            UIApplication.shared.open(url)
+                        }
+                    }) {
+                        Image(systemName: "link")
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing){
+                    Button(action: {
                         openfilza()
                     }) {
                         Image(systemName: "folder")
@@ -144,7 +153,11 @@ struct ContentView: View {
     }
     
     private func openfilza() {
-        if !FileManager.default.fileExists(atPath: "\(outputDirectory)/dump.cs") { return }
+        if !FileManager.default.fileExists(atPath: "\(outputDirectory)/dump.cs") {
+            message = "dump.cs NotFound"
+            showingAlert = true
+            return
+        }
         if let url = URL(string: "filza://\(outputDirectory)/dump.cs") {
             UIApplication.shared.open(url)
         }
