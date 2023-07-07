@@ -11,3 +11,4 @@ An il2cppdumper application for iOS devices. Support both rootful and rootless!
 
 <img src="https://raw.githubusercontent.com/34306/unitydump-iOS/main/preview2.PNG"> <img src="https://raw.githubusercontent.com/34306/unitydump-iOS/main/preview1.PNG">
 
+[Il2CppDumper](https://github.com/Perfare/Il2CppDumper)
