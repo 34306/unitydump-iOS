@@ -14,13 +14,14 @@ struct ContentView: View {
 
     @State private var filePath1: String = ""
     @State private var filePath2: String = ""
-    @State private var outputDirectory: String = "/var/mobile/Documents/Dump"
+    @AppStorage("outputDirectory") var outputDirectory: String = "/var/mobile/Documents/Dump"
     
     @State private var processing = false
     @State private var showingAlert = false
     @State private var message: String = ""
     
-    @State private var firstboot = true
+    @State private var update_available = false
+    let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as! String
 
     var body: some View {
         NavigationView {
@@ -97,18 +98,28 @@ struct ContentView: View {
                 Alert(title: Text(message))
             }
             .onAppear{
-                if !firstboot { return }
-                initialize()
-                firstboot = false
+                fetchLatestRelease()
             }
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading){
+                    Text("unitydump-iOS v\(version)")
+                        .font(.headline)
+                }
                 ToolbarItem(placement: .navigationBarTrailing){
                     Button(action: {
                         if let url = URL(string: "https://github.com/34306/unitydump-iOS") {
                             UIApplication.shared.open(url)
                         }
                     }) {
-                        Image(systemName: "link")
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "sparkles")
+                            if update_available {
+                                Rectangle()
+                                    .foregroundColor(.red)
+                                    .frame(width: 9, height: 9)
+                                    .cornerRadius(60)
+                            }
+                        }
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing){
@@ -123,44 +134,60 @@ struct ContentView: View {
         .navigationViewStyle(.stack)
     }
     
-    private func initialize() {
-        do {
-            if !FileManager.default.fileExists(atPath: "/var/mobile/Documents/Dump") {
-                try FileManager.default.createDirectory(atPath: "/var/mobile/Documents/Dump", withIntermediateDirectories: true)
-            }
-        } catch {
-            message = "Could not create output folder."
-            showingAlert = true
-        }
-    }
-
     private func executeDumpingScript(file1: String, file2: String, outputDir: String) {
+        let basename = (filePath1 as NSString).lastPathComponent
+        try? FileManager.default.createDirectory(atPath: "\(outputDirectory)/\(basename)", withIntermediateDirectories: true)
         if let Il2CppDumper = Bundle.main.url(forResource: "iOS-Dump/Il2CppDumper", withExtension: nil) {
             var output = ""
             let command = Il2CppDumper.path
             let env = ["PATH": "\(Il2CppDumper.path.replacingOccurrences(of: "/Il2CppDumper", with: "")):$PATH"]
-            let args = [file1, file2, outputDir]
+            let args = ["\(outputDirectory)/\(basename)", file2, outputDir]
             
             let receipt = AuxiliaryExecute.spawn(command: command, args: args, environment: env, output: { output += $0 })
             if receipt.exitCode != 0 {
-                message = "Error when running the script! Please checking the file (decrypted or not) or path to the file is correct!"
-                showingAlert = true
+                showAlert("Error when running the script! Please checking the file (decrypted or not) or path to the file is correct!")
                 return
             }
-            message = "All done!\nEnjoy hacking your game 🥰"
-            showingAlert = true
+            let dumpExists = FileManager.default.fileExists(atPath: "\(outputDirectory)/\(basename)/dump.cs")
+            showAlert(dumpExists ? "All done!\nEnjoy hacking your game 🥰" : "Unknown error")
         }
     }
     
     private func openfilza() {
-        if !FileManager.default.fileExists(atPath: "\(outputDirectory)/dump.cs") {
-            message = "dump.cs NotFound"
-            showingAlert = true
+        let basename = (filePath1 as NSString).lastPathComponent
+        if !FileManager.default.fileExists(atPath: "\(outputDirectory)/\(basename)/dump.cs") {
+            showAlert("dump.cs NotFound")
             return
         }
-        if let url = URL(string: "filza://\(outputDirectory)/dump.cs") {
-            UIApplication.shared.open(url)
+        if let url = URL(string: "filza://\(outputDirectory)/\(basename)/dump.cs") {
+            if UIApplication.shared.canOpenURL(URL(string: "filza://")!) {
+                UIApplication.shared.open(url)
+             } else {
+                 showAlert("Filza not installed")
+            }
         }
+    }
+    
+    func showAlert(_ m: String) {
+        message = m
+        showingAlert = true
+    }
+    
+    func fetchLatestRelease() {
+        let url = URL(string: "https://api.github.com/repos/34306/unitydump-iOS/releases/latest")!
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            if let data = data {
+                do {
+                    let o = try JSONSerialization.jsonObject(with: data, options: .mutableContainers) as! [String: Any]
+                    guard let l = o["tag_name"] else { return }
+                    if "unitydump-iOS-"+version != l as! String {
+                        update_available = true
+                    }
+                } catch {
+                    print(error)
+                }
+            }
+        }.resume()
     }
 }
 
