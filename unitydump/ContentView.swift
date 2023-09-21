@@ -77,7 +77,8 @@ struct ContentView: View {
                             .background(Color.blue)
                             .cornerRadius(10)
                     }
-                    .disabled(processing)
+                    .disabled(processing || filePath1 == "" || filePath2 == "" || outputDirectory == "")
+                    .opacity(processing || filePath1 == "" || filePath2 == "" || outputDirectory == "" ? 0.5 : 1)
                     
                     if processing {
                         ProgressView()
