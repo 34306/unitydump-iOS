@@ -11,17 +11,19 @@ import UIKit
 import AuxiliaryExecute
 
 struct ContentView: View {
-
-    @State private var filePath1: String = ""
-    @State private var filePath2: String = ""
-    @AppStorage("outputDirectory") var outputDirectory: String = "/var/mobile/Documents/Dump"
+    @AppStorage("executableBinary") 
+    private var executableBinary: String = ""
+    @AppStorage("globalMetadata") 
+    private var globalMetadata: String = ""
+    @AppStorage("outputDirectory") 
+    private var outputDirectory: String = "/var/mobile/Documents/unitydump"
     
-    @State private var processing = false
-    @State private var showingAlert = false
+    @State private var processing: Bool = false
+    @State private var showingAlert: Bool = false
     @State private var message: String = ""
     
-    @State private var update_available = false
-    let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as! String
+    @State private var updateAvailable = false
+    private let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as! String
 
     var body: some View {
         NavigationView {
@@ -46,29 +48,32 @@ struct ContentView: View {
                     }
                 )
                 
-                TextField("Path to UnityFramework/BinaryExecute", text: $filePath1)
+                TextField("Path to UnityFramework/BinaryExecute", text: self.$executableBinary)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding()
-                    .disabled(processing)
+                    .disabled(self.processing)
                 
-                TextField("Path to global-metadata.dat", text: $filePath2)
+                TextField("Path to global-metadata.dat", text: self.$globalMetadata)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding()
-                    .disabled(processing)
+                    .disabled(self.processing)
                 
-                TextField("Output Path", text: $outputDirectory)
+                TextField("Output Directory Path", text: self.$outputDirectory)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding()
-                    .disabled(processing)
-                
+                    .disabled(self.processing)
                 
                 
                 HStack {
                     Button(action: {
-                        processing = true
+                        self.processing = true
                         DispatchQueue.global().async {
-                            executeDumpingScript(file1: filePath1, file2: filePath2, outputDir: outputDirectory)
-                            processing = false
+                            self.Il2CppDumper(
+                                executableBinary: self.executableBinary,
+                                globalMetadata: self.globalMetadata,
+                                outputDirectory: self.outputDirectory
+                            )
+                            self.processing = false
                         }
                     }) {
                         Text("il2CppDumper!")
@@ -77,10 +82,10 @@ struct ContentView: View {
                             .background(Color.blue)
                             .cornerRadius(10)
                     }
-                    .disabled(processing || filePath1 == "" || filePath2 == "" || outputDirectory == "")
-                    .opacity(processing || filePath1 == "" || filePath2 == "" || outputDirectory == "" ? 0.5 : 1)
+                    .disabled(self.processing || self.executableBinary == "" || self.globalMetadata == "" || self.outputDirectory == "")
+                    .opacity(self.processing || self.executableBinary == "" || self.globalMetadata == "" || self.outputDirectory == "" ? 0.5 : 1)
                     
-                    if processing {
+                    if self.processing {
                         ProgressView()
                             .padding()
                     }
@@ -95,15 +100,15 @@ struct ContentView: View {
                     .opacity(0.7)
             )
             .padding()
-            .alert(isPresented: $showingAlert) {
-                Alert(title: Text(message))
+            .alert(isPresented: self.$showingAlert) {
+                Alert(title: Text(self.message))
             }
             .onAppear{
-                fetchLatestRelease()
+                self.fetchLatestRelease()
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading){
-                    Text("unitydump-iOS v\(version)")
+                    Text("unitydump-iOS v\(self.version)")
                         .font(.headline)
                 }
                 ToolbarItem(placement: .navigationBarTrailing){
@@ -114,7 +119,7 @@ struct ContentView: View {
                     }) {
                         ZStack(alignment: .topTrailing) {
                             Image(systemName: "sparkles")
-                            if update_available {
+                            if self.updateAvailable {
                                 Rectangle()
                                     .foregroundColor(.red)
                                     .frame(width: 9, height: 9)
@@ -125,7 +130,7 @@ struct ContentView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing){
                     Button(action: {
-                        openfilza()
+                        self.openFilza()
                     }) {
                         Image(systemName: "folder")
                     }
@@ -135,54 +140,59 @@ struct ContentView: View {
         .navigationViewStyle(.stack)
     }
     
-    private func executeDumpingScript(file1: String, file2: String, outputDir: String) {
-        let basename = (filePath1 as NSString).lastPathComponent
-        try? FileManager.default.createDirectory(atPath: "\(outputDirectory)/\(basename)", withIntermediateDirectories: true)
-        if let Il2CppDumper = Bundle.main.url(forResource: "iOS-Dump/Il2CppDumper", withExtension: nil) {
-            var output = ""
-            let command = Il2CppDumper.path
-            let env = ["PATH": "\(Il2CppDumper.path.replacingOccurrences(of: "/Il2CppDumper", with: "")):$PATH"]
-            let args = ["\(outputDirectory)/\(basename)", file2, outputDir]
-            
-            let receipt = AuxiliaryExecute.spawn(command: command, args: args, environment: env, output: { output += $0 })
-            if receipt.exitCode != 0 {
-                showAlert("Error when running the script! Please checking the file (decrypted or not) or path to the file is correct!")
-                return
-            }
-            let dumpExists = FileManager.default.fileExists(atPath: "\(outputDirectory)/\(basename)/dump.cs")
-            showAlert(dumpExists ? "All done!\nEnjoy hacking your game 🥰" : "Unknown error")
-        }
-    }
-    
-    private func openfilza() {
-        let basename = (filePath1 as NSString).lastPathComponent
-        if !FileManager.default.fileExists(atPath: "\(outputDirectory)/\(basename)/dump.cs") {
-            showAlert("dump.cs NotFound")
+    private func Il2CppDumper(executableBinary: String, globalMetadata: String, outputDirectory: String) {
+        let appName = (executableBinary as NSString).lastPathComponent
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd_HH:mm:ss"
+        let timestamp = dateFormatter.string(from: Date())
+        
+        try? FileManager.default.createDirectory(atPath: "\(outputDirectory)/\(appName)/\(timestamp)", withIntermediateDirectories: true)
+        let Il2CppDumper = Bundle.main.url(forResource: "iOS-Dump/Il2CppDumper", withExtension: nil)!
+        
+        let command = Il2CppDumper.path
+        let args = [executableBinary, globalMetadata, "\(outputDirectory)/\(appName)/\(timestamp)"]
+        let env = ["PATH": "\(Il2CppDumper.path.replacingOccurrences(of: "/Il2CppDumper", with: "")):$PATH"]
+        
+        var output = ""
+        let receipt = AuxiliaryExecute.spawn(command: command, args: args, environment: env, output: { output += $0 })
+        if receipt.exitCode != 0 {
+            self.showAlert("Error when running the script! Please checking the file (decrypted or not) or path to the file is correct!")
             return
         }
-        if let url = URL(string: "filza://\(outputDirectory)/\(basename)/dump.cs") {
+        
+        let dumpExists = FileManager.default.fileExists(atPath: "\(outputDirectory)/\(appName)/\(timestamp)/dump.cs")
+        self.showAlert(dumpExists ? "All done!\nEnjoy hacking your game 🥰" : "Unknown error\n\(receipt.stderr)")
+    }
+    
+    private func openFilza() {
+        let appName = (self.executableBinary as NSString).lastPathComponent
+        if !FileManager.default.fileExists(atPath: "\(self.outputDirectory)/\(appName)") {
+            self.showAlert("dump.cs NotFound")
+            return
+        }
+        if let url = URL(string: "filza://\(self.outputDirectory)/\(appName)") {
             if UIApplication.shared.canOpenURL(URL(string: "filza://")!) {
                 UIApplication.shared.open(url)
              } else {
-                 showAlert("Filza not installed")
+                 self.showAlert("Filza not installed")
             }
         }
     }
     
-    func showAlert(_ m: String) {
-        message = m
-        showingAlert = true
+    private func showAlert(_ message: String) {
+        self.message = message
+        self.showingAlert = true
     }
     
-    func fetchLatestRelease() {
+    private func fetchLatestRelease() {
         let url = URL(string: "https://api.github.com/repos/34306/unitydump-iOS/releases/latest")!
         URLSession.shared.dataTask(with: url) { data, response, error in
             if let data = data {
                 do {
                     let o = try JSONSerialization.jsonObject(with: data, options: .mutableContainers) as! [String: Any]
                     guard let l = o["tag_name"] else { return }
-                    if "unitydump-iOS-"+version != l as! String {
-                        update_available = true
+                    if "unitydump-iOS-"+self.version != l as! String {
+                        self.updateAvailable = true
                     }
                 } catch {
                     print(error)
